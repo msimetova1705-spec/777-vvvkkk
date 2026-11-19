@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sales Monitor — Мониторинг продаж</title>
+<style>
+:root{color-scheme:light;--bg:#f8fafc;--ink:#1e293b;--muted:#56667c;--line:#e2e8f0;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--orange:#f59e0b}
+[hidden]{display:none!important}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,sans-serif}header{background:white;border-bottom:1px solid var(--line)}.shell{max-width:1440px;margin:auto;padding:0 clamp(14px,4vw,56px)}.top,.toolbar,.split,.actions,nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.top,.split{justify-content:space-between}.top{padding-block:14px}.brand{font-size:20px;font-weight:800;display:flex;align-items:center;gap:10px}.logo{background:var(--blue);color:white;border-radius:9px;padding:4px 10px}nav{gap:5px}nav button{border-color:transparent;background:none}nav button[aria-current]{background:#eaf1ff;color:#174ac0}main{padding-block:28px 48px!important}h1,h2,p{margin:0}h1{font-size:clamp(25px,4vw,36px);letter-spacing:-.035em}h2{font-size:18px}.muted,small{color:var(--muted)}.intro{margin-bottom:20px}.toolbar{margin:0 0 18px}.toolbar label{display:flex;align-items:center;gap:7px}button,input,select,textarea{font:inherit;color:inherit;border:1px solid #cbd5e1;border-radius:8px;background:white;padding:8px 11px;max-width:100%}button{cursor:pointer;font-weight:600}button:hover{border-color:var(--blue)}button.primary{background:var(--blue);border-color:var(--blue);color:white}:focus-visible{outline:3px solid #93b5ff;outline-offset:2px}.card{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:14px}.metric{font-size:clamp(18px,2vw,27px);font-weight:750;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.grid{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1fr);gap:14px}.badge{display:inline-block;border-radius:20px;padding:3px 9px;background:#edf2f8;color:#42536a;font-size:12px;font-weight:650}.good{background:#dcfce7;color:#166534}.mid{background:#fff1d1;color:#854d0e}.bad{background:#fee2e2;color:#991b1b}.toprank{background:#eff6ff}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line)}th{background:#f1f5f9}td{font-variant-numeric:tabular-nums}td button,th button{padding:4px 8px}.empty{text-align:center;color:var(--muted);padding:24px}.pagination{margin-top:14px}.chart{display:block;width:100%;height:clamp(190px,29vw,300px);margin-top:12px}.chart text{fill:var(--muted);font:12px system-ui}.chart circle:focus{outline:none;stroke:#0f172a;stroke-width:3}.chart-readout{min-height:21px}progress{width:100%;height:13px;accent-color:var(--blue)}.stage{margin-top:12px}.stage progress{height:8px}.section-gap{margin-bottom:14px}details.card{margin-top:18px}summary{cursor:pointer;font-weight:650}details p,details .actions{margin-top:10px}dialog{border:1px solid var(--line);border-radius:16px;padding:22px;width:min(560px,calc(100% - 24px));color:var(--ink);max-height:90vh;overflow:auto}dialog::backdrop{background:#0f172a80}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0}.fields label{display:grid;gap:5px;min-width:0}.wide{grid-column:1/-1}.error{color:#991b1b;margin-block:8px}.notice{margin-bottom:10px}textarea{resize:vertical}.table-card{padding:0;overflow:hidden}.table-card .pagination{padding:0 12px 12px}.help-list{padding-left:21px}
+@media(max-width:1000px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:690px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card{padding:13px}.table-card{padding:0}nav button{font-size:12px;padding:6px 8px}.fields{grid-template-columns:1fr}.toolbar input[type=search]{width:100%}}
+</style>
+</head>
+<body>
+<header><div class="shell top">
+<div class="brand"><span class="logo" aria-hidden="true">↗</span> Sales Monitor</div>
+<nav aria-label="Разделы">
+<button data-view="dashboard">Дашборд продаж</button>
+<button data-view="team">Эффективность менеджеров</button>
+<button data-view="deals">Сделки и воронка</button>
+</nav>
+<span id="demo" class="badge mid" hidden>Демонстрационные данные</span>
+</div></header>
+<main class="shell">
+<noscript>Включите JavaScript в браузере, чтобы открыть Sales Monitor.</noscript>
+<p id="notice" class="notice" role="status"></p>
+<section id="view" aria-labelledby="heading"></section>
+<details class="card"><summary>Экспорт и резервные копии</summary>
+<p class="muted">CSV содержит все сделки. Резервная копия JSON также включает менеджеров и месячные планы.</p>
+<div class="actions"><button id="csv">Скачать CSV</button><button id="backup">Скачать JSON</button><button id="restore">Восстановить из JSON</button><button id="reset">Удалить демонстрационные данные</button></div>
+<input id="upload" type="file" accept=".json,application/json" hidden>
+</details>
+<details class="card"><summary>Краткая инструкция</summary>
+<ol class="help-list">
+<li>Откройте этот файл в браузере. При первом запуске загрузятся демонстрационные записи.</li>
+<li>На дашборде выберите период и менеджера. Наведите указатель на точку графика или выделите её клавишей Tab, чтобы увидеть сумму.</li>
+<li>В разделе менеджеров выберите месяц и установите план через кнопку «Изменить». Рейтинг строится по объёму продаж.</li>
+<li>Добавляйте и редактируйте сделки. Для успешных и проигранных сделок указывайте фактические дату и время закрытия.</li>
+<li>Данные хранятся в текущем браузере. Скачайте JSON, чтобы перенести записи в другой браузер или восстановить их позже. Восстановление заменяет текущий набор данных.</li>
+</ol></details>
+</main>
+<dialog id="editor" aria-labelledby="dialog-title"><form id="form"><div class="split"><h2 id="dialog-title"></h2><button type="button" id="cancel" aria-label="Закрыть">✕</button></div><div id="fields" class="fields"></div><p id="form-error" class="error" role="alert"></p><button class="primary">Сохранить</button></form></dialog>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const KEY = 'sales-monitor-v1';
+const stages = ['Новый клиент','Переговоры','Коммерческое предложение','Заключение договора','Успешная продажа','Отказ / Сделка проиграна'];
+const WON = 4, LOST = 5;
+const periods = {day:'Сегодня',week:'Неделя',month:'Месяц',quarter:'Квартал'};
+const nf = new Intl.NumberFormat('ru-KZ',{maximumFractionDigits:2});
+const money = value => nf.format(value) + ' ₸';
+const percent = value => value === null ? 'План не установлен' : nf.format(value) + '%';
+const ratio = (fact,plan) => plan ? fact / plan * 100 : null;
+const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[character]);
+const pad = n => String(n).padStart(2,'0');
+const iso = d => [d.getFullYear(),pad(d.getMonth()+1),pad(d.getDate())].join('-');
+const localTime = d => iso(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+const shift = (date,days) => new Date(date.getFullYear(),date.getMonth(),date.getDate()+days);
+const monthStart = (date,offset=0) => new Date(date.getFullYear(),date.getMonth()+offset,1);
+const monthKey = d => iso(d).slice(0,7);
+const isFinal = stage => stage === WON || stage === LOST;
+const dateLabel = value => value ? value.slice(0,10).split('-').reverse().join('.') : '—';
+const stampLabel = value => value ? dateLabel(value)+' '+value.slice(11) : '—';
+const monthLabel = date => date.toLocaleDateString('ru-RU',{month:'short',year:'numeric'});
+const options = (items,value) => items.map(([key,label]) => '<option value="'+escape(key)+'"'+(String(key)===String(value)?' selected':'')+'>'+escape(label)+'</option>').join('');
+const today = new Date();
+const ui = {view:'dashboard',period:'month',manager:'',month:monthKey(today),teamSearch:'',dealSearch:'',stage:'',dealManager:'',sort:'fact',direction:-1,page:0};
+const PAGE = 30;
+const blank = () => ({version:1,managers:[],deals:[]});
+function demoData(now) {
+  const data = blank();
+  const names = ['Алия Нурланова','Данияр Садыков','Аружан Омарова','Максат Ибраев','Салтанат Ким','Ержан Ахметов','Айдана Сеитова'];
+  const clients = ['ТОО «Алатау»','ТОО «Орбита»','ИП «Аспан»','ТОО «Меридиан»','ТОО «Вектор»','ТОО «Керуен»','ИП «Жетісу»','ТОО «Тандем»','ТОО «Самал»'];
+  data.managers = names.map((name,i)=>({id:'M'+(i+1),name,demo:true,plans:{}}));
+  for(let offset=-3;offset<=2;offset++){
+    const start=monthStart(now,offset);
+    data.managers.forEach((m,i)=>{m.plans[monthKey(start)]=[1300000,1550000,1450000,1600000,1900000,2000000,2200000][i];});
+    if(offset>0) continue;
+    const days=offset===0?now.getDate():shift(monthStart(start,1),-1).getDate();
+    for(let i=0;i<35;i++){
+      const person=i%7, batch=Math.floor(i/7);
+      const close=shift(start,(i*7+batch*3)%days);
+      close.setHours(8+(i*3)%12,(i*7)%60);
+      if(close>now) close.setTime(now.getTime());
+      const stage=batch<2?WON:batch===2?(person%3===0?LOST:WON):(i+batch)%4;
+      const created=shift(close,-2-(i%8));
+      data.deals.push({id:'SM-'+String(data.deals.length+1).padStart(4,'0'),client:clients[(i+offset+clients.length)%clients.length],manager:'M'+(person+1),amount:(690-person*76+batch*22+(i*19)%95)*1000,created:iso(created),planned:iso(shift(created,18)),closed:isFinal(stage)?localTime(close):'',stage,note:'Учебный пример',demo:true});
+    }
+  }
+  return data;
+}
+const validDate = value => typeof value==='string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10)===value;
+const validStamp = value => typeof value==='string' && /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) && validDate(value.slice(0,10));
+const validMonth = value => /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+const validAmount = value => typeof value==='number' && Number.isFinite(value) && value>=0 && value<=9999999999999;
+const validText = (value,max) => typeof value==='string' && value.trim().length>0 && value.length<=max;
+const normalizeId = id => id.trim().toUpperCase();
+function validateDeal(d, managers) {
+  if(!validText(d.id,40)||!validText(d.client,160)||!managers.has(d.manager)) throw Error('Укажите номер, клиента и ответственного менеджера.');
+  if(!validAmount(d.amount)) throw Error('Укажите допустимую неотрицательную сумму.');
+  if(!Number.isInteger(d.stage)||d.stage<0||d.stage>=stages.length||typeof d.note!=='string'||d.note.length>2000) throw Error('Проверьте статус и комментарий.');
+  if(!validDate(d.created)||!validDate(d.planned)||d.planned<d.created) throw Error('Плановая дата должна быть не раньше даты создания.');
+  if(isFinal(d.stage)?(!validStamp(d.closed)||d.closed.slice(0,10)<d.created||d.closed>localTime(new Date())):d.closed!=='') throw Error('Проверьте фактическую дату и время закрытия.');
+}
+function validateData(data) {
+  if(!data||data.version!==1||!Array.isArray(data.managers)||!Array.isArray(data.deals)) throw Error('Выберите резервную копию Sales Monitor версии 1.');
+  const managers=new Set(), ids=new Set();
+  for(const m of data.managers){
+    if(!m||!validText(m.id,80)||managers.has(m.id)||!validText(m.name,120)||!m.plans||typeof m.plans!=='object'||Array.isArray(m.plans)||Object.entries(m.plans).some(([k,v])=>!validMonth(k)||!validAmount(v))) throw Error('В копии есть некорректные данные менеджеров или планов.');
+    managers.add(m.id);
+  }
+  for(const d of data.deals){
+    if(!d) throw Error('В копии есть пустая запись сделки.');
+    validateDeal(d,managers);
+    const id=normalizeId(d.id);
+    if(ids.has(id)) throw Error('В копии повторяется номер сделки.');
+    ids.add(id);
+  }
+  return data;
+}
+let db;
+let storageLocked=false;
+function notice(message,error=false) {
+  $('notice').textContent=message;
+  $('notice').classList.toggle('error',error);
+}
+try {
+  const saved=localStorage.getItem(KEY);
+  if(saved===null){
+    db=demoData(today);
+    localStorage.setItem(KEY,JSON.stringify(db));
+  }else db=validateData(JSON.parse(saved));
+}catch{
+  storageLocked=!db;
+  db ||= demoData(today);
+  notice('Не удалось загрузить или инициализировать хранилище. Если сохранённые данные повреждены, восстановите их из JSON.',true);
+}
+function commit(next,allowReplace=false) {
+  if(storageLocked&&!allowReplace) throw Error('Сначала восстановите данные из резервной копии JSON.');
+  try{localStorage.setItem(KEY,JSON.stringify(next));}
+  catch{throw Error('Браузер не смог сохранить изменения. Проверьте доступ к локальному хранилищу и свободное место.');}
+  storageLocked=false;
+  db=next;
+  if(!db.managers.some(m=>m.id===ui.manager)) ui.manager='';
+  if(!db.managers.some(m=>m.id===ui.dealManager)) ui.dealManager='';
+  render();
+}
+function bounds(kind,previous=false) {
+  const now=new Date(), offset=previous?-1:0;
+  if(kind==='day') return [shift(now,offset),shift(now,offset+1)];
+  if(kind==='week'){
+    const start=shift(now,-(now.getDay()+6)%7+offset*7);
+    return [start,shift(start,7)];
+  }
+  const quarter=kind==='quarter';
+  const start=monthStart(now,quarter?-(now.getMonth()%3)+offset*3:offset);
+  return [start,monthStart(start,quarter?3:1)];
+}
+function planned(managers,[start,end]) {
+  let total=0;
+  for(let month=monthStart(start);month<end;month=monthStart(month,1)){
+    const next=monthStart(month,1);
+    const utc=d=>Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
+    const part=(utc(end<next?end:next)-utc(start>month?start:month))/(utc(next)-utc(month));
+    for(const m of managers) total+=(m.plans[monthKey(month)]||0)*part;
+  }
+  return total;
+}
+function completed(deals,[start,end]) {
+  const from=iso(start), until=iso(end);
+  return deals.filter(d=>isFinal(d.stage)&&d.closed>=from&&d.closed<until);
+}
+const sum = deals => deals.reduce((total,d)=>total+d.amount,0);
+const successes = deals => deals.filter(d=>d.stage===WON);
+const managerList = () => db.managers.map(m=>[m.id,m.name]);
+const title = (name,subtitle,action='') => '<div class="intro split"><div><h1 id="heading">'+name+'</h1><p class="muted">'+subtitle+'</p></div>'+action+'</div>';
+const rangeLabel = ([start,end]) => dateLabel(iso(start))+' — '+dateLabel(iso(shift(end,-1)));
+const managerSelect = (id,value) => '<select id="'+id+'">'+options([['','Все менеджеры'],...managerList()],value)+'</select>';
+const kpi = (name,value) => '<article class="card"><div class="muted">'+name+'</div><div class="metric">'+value+'</div></article>';
+function chart(won,[start,end]) {
+  const key=d=>ui.period==='day'?d.slice(11,13):ui.period==='quarter'?d.slice(0,7):d.slice(0,10);
+  const buckets=new Map();
+  if(ui.period==='day'){
+    for(let hour=0;hour<24;hour++) buckets.set(pad(hour),0);
+  }else{
+    for(let date=start;date<end;date=ui.period==='quarter'?monthStart(date,1):shift(date,1)) buckets.set(key(iso(date)),0);
+  }
+  for(const d of won) buckets.set(key(d.closed),buckets.get(key(d.closed))+d.amount);
+  const entries=[...buckets];
+  const max=Math.max(1,...buckets.values());
+  const label=k=>ui.period==='day'?k+':00':ui.period==='quarter'?monthLabel(new Date(k+'-01T00:00')):dateLabel(k).slice(0,5);
+  const points=entries.map(([k,v],i)=>({label:label(k),value:v,x:52+515*i/Math.max(1,entries.length-1),y:174-142*v/max}));
+  const line=points.map(p=>p.x+','+p.y).join(' ');
+  const compact=new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1});
+  return '<svg class="chart" viewBox="0 0 590 205" role="group" aria-label="Линейный график динамики продаж">'+
+    [0,.25,.5,.75,1].map(f=>'<line x1="51" x2="567" y1="'+(174-f*142)+'" y2="'+(174-f*142)+'" stroke="#e2e8f0"/><text x="43" y="'+(178-f*142)+'" text-anchor="end">'+compact.format(max===1&&won.length===0?0:max*f)+'</text>').join('')+
+    '<polygon points="52,174 '+line+' 567,174" fill="#eaf1ff"/><polyline points="'+line+'" fill="none" stroke="#2563eb" stroke-width="2.5"/>'+
+    points.map((p,i)=>{
+      const readout=p.label+' · '+money(p.value);
+      return '<circle tabindex="0" role="img" aria-label="'+escape(readout)+'" data-point="'+escape(readout)+'" cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#2563eb"><title>'+escape(readout)+'</title></circle>'+
+        ((i===0||i===points.length-1||i%Math.ceil(points.length/5)===0)&&i!==points.length-2?'<text x="'+p.x+'" y="197" text-anchor="middle">'+escape(p.label)+'</text>':'');
+    }).join('')+'</svg><p id="chart-readout" class="muted chart-readout" aria-live="polite">'+(won.length?'Выберите точку, чтобы увидеть сумму.':'За этот период успешных сделок нет.')+'</p>';
+}
+function dashboard() {
+  const range=bounds(ui.period), prev=bounds(ui.period,true);
+  const managers=db.managers.filter(m=>!ui.manager||ui.manager===m.id);
+  const deals=db.deals.filter(d=>!ui.manager||ui.manager===d.manager);
+  const won=successes(completed(deals,range)), prevWon=successes(completed(deals,prev));
+  const fact=sum(won), plan=planned(managers,range), performance=ratio(fact,plan), prior=sum(prevWon);
+  const delta=fact-prior;
+  const comparison=prevWon.length?'<p class="muted">'+rangeLabel(prev)+'</p><p class="metric">'+money(prior)+'</p><p><span class="badge '+(delta>0?'good':delta<0?'bad':'')+'">'+(delta>0?'+':'')+money(delta)+(prior?' · '+(delta>0?'+':'')+nf.format(delta/prior*100)+'%':'')+'</span></p>':'<p class="muted">За предыдущий период успешных сделок нет.</p>';
+  return title('Дашборд продаж','Результаты за '+rangeLabel(range))+
+    '<div class="toolbar"><label>Период <select id="period">'+options(Object.entries(periods),ui.period)+'</select></label><label>Менеджер '+managerSelect('manager',ui.manager)+'</label></div>'+
+    '<div class="kpis">'+kpi('Общий объём продаж',money(fact))+kpi('План продаж',plan?money(plan):'План не установлен')+kpi('Выполнение плана',percent(performance))+kpi('Закрытые сделки',won.length)+kpi('Средний чек',won.length?money(fact/won.length):'—')+'</div>'+
+    '<div class="grid"><article class="card"><h2>Динамика продаж</h2><p class="muted">Успешные сделки по фактической дате закрытия</p>'+chart(won,range)+'</article>'+
+    '<div><article class="card section-gap"><h2>Выполнение плана</h2><p class="metric">'+percent(performance)+'</p>'+
+    (plan?'<progress aria-label="Выполнение плана" max="100" value="'+Math.min(performance,100)+'"></progress><p class="muted">'+money(fact)+' из '+money(plan)+'</p>':'<p class="muted">Установите месячные планы в разделе менеджеров.</p>')+
+    '</article><article class="card"><h2>Предыдущий период</h2>'+comparison+'</article></div></div>';
+}
+function statusBadge(value) {
+  if(value===null) return '<span class="badge">План не установлен</span>';
+  const [className,label]=value>=100?['good','Выполнен']:value>=80?['mid','В процессе']:['bad','Отставание'];
+  return '<span class="badge '+className+'">'+label+'</span>';
+}
+function team() {
+  const month=new Date(ui.month+'-01T00:00');
+  const won=successes(completed(db.deals,[month,monthStart(month,1)]));
+  const rows=db.managers.map(m=>{
+    const deals=won.filter(d=>d.manager===m.id);
+    const plan=m.plans[ui.month]||0, fact=sum(deals);
+    return {m,plan,fact,performance:ratio(fact,plan),count:deals.length};
+  }).sort((a,b)=>b.fact-a.fact||a.m.name.localeCompare(b.m.name,'ru'));
+  rows.forEach((row,i)=>{row.rank=i+1;});
+  const filtered=rows.filter(row=>row.m.name.toLowerCase().includes(ui.teamSearch.trim().toLowerCase())).sort((a,b)=>{
+    if(a[ui.sort]===null) return b[ui.sort]===null?a.rank-b.rank:1;
+    if(b[ui.sort]===null) return -1;
+    return ui.direction*(a[ui.sort]-b[ui.sort])||a.rank-b.rank;
+  });
+  const sortable=(key,label)=>'<th scope="col"'+(ui.sort===key?' aria-sort="'+(ui.direction===1?'ascending':'descending')+'"':'')+'><button data-sort="'+key+'">'+label+(ui.sort===key?(ui.direction===1?' ↑':' ↓'):'')+'</button></th>';
+  return title('Эффективность менеджеров','Результаты и индивидуальные планы за календарный месяц.','<button class="primary" data-action="add-manager">+ Менеджер</button>')+
+    '<div class="toolbar"><label>Месяц <input id="month" type="month" value="'+ui.month+'" required></label><input id="teamSearch" type="search" aria-label="Поиск по ФИО" placeholder="Поиск по ФИО" value="'+escape(ui.teamSearch)+'"></div>'+
+    '<div class="card table-card"><div class="scroll" tabindex="0" aria-label="Таблица менеджеров"><table><thead><tr><th>Место</th><th>Менеджер</th><th>План, ₸</th>'+sortable('fact','Факт, ₸')+sortable('performance','Выполнение, %')+sortable('count','Сделки')+'<th>Статус</th><th>Действия</th></tr></thead><tbody>'+
+    (filtered.map(({m,rank,plan,fact,performance,count})=>'<tr'+(rank<=3?' class="toprank"':'')+'><td><strong>'+rank+'</strong></td><td>'+escape(m.name)+'</td><td>'+(plan?money(plan):'—')+'</td><td>'+money(fact)+'</td><td>'+(performance===null?'—':percent(performance))+'</td><td>'+count+'</td><td>'+statusBadge(performance)+'</td><td><button data-action="edit-manager" data-id="'+escape(m.id)+'">Изменить</button></td></tr>').join('')||'<tr><td colspan="8" class="empty">Менеджеры не найдены.</td></tr>')+'</tbody></table></div></div>';
+}
+function dealsView() {
+  const deals=db.deals.filter(d=>!ui.dealManager||d.manager===ui.dealManager);
+  const range=bounds(ui.period), finals=completed(deals,range), won=successes(finals);
+  const groups=stages.map((name,stage)=>deals.filter(d=>d.stage===stage));
+  const max=Math.max(1,...groups.map(group=>group.length));
+  const query=ui.dealSearch.trim().toLowerCase();
+  const filtered=deals.filter(d=>(ui.stage===''||String(d.stage)===ui.stage)&&(!query||d.client.toLowerCase().includes(query)||d.id.toLowerCase().includes(query)))
+    .sort((a,b)=>b.created.localeCompare(a.created)||b.id.localeCompare(a.id,undefined,{numeric:true}));
+  const pages=Math.max(1,Math.ceil(filtered.length/PAGE));
+  ui.page=Math.min(ui.page,pages-1);
+  const names=new Map(managerList());
+  return title('Сделки и воронка продаж','Управляйте сделками и отслеживайте конверсию.','<button class="primary" data-action="add-deal">+ Сделка</button>')+
+    '<div class="toolbar"><label>Менеджер '+managerSelect('dealManager',ui.dealManager)+'</label><label>Период конверсии <select id="period">'+options(Object.entries(periods),ui.period)+'</select></label></div>'+
+    '<div class="grid section-gap"><article class="card"><h2>Воронка продаж</h2><p class="muted">Текущие этапы сделок выбранных менеджеров за всё время</p>'+
+    groups.map((group,i)=>'<div class="stage"><div class="split"><span>'+stages[i]+'</span><strong>'+group.length+' · '+money(sum(group))+'</strong></div><progress aria-label="'+stages[i]+'" value="'+group.length+'" max="'+max+'"></progress></div>').join('')+
+    '</article><article class="card"><h2>Конверсия в продажу</h2><p class="muted">'+rangeLabel(range)+'</p><p class="metric">'+(finals.length?percent(won.length/finals.length*100):'—')+'</p><p class="muted">'+(finals.length?won.length+' успешных из '+finals.length+' завершённых сделок':'За этот период завершённых сделок нет.')+'</p></article></div>'+
+    '<div class="toolbar"><input id="dealSearch" type="search" aria-label="Поиск по клиенту или номеру" placeholder="Клиент или номер сделки" value="'+escape(ui.dealSearch)+'"><label>Статус <select id="stage">'+options([['','Все статусы'],...stages.map((name,i)=>[i,name])],ui.stage)+'</select></label></div>'+
+    '<div class="card table-card"><div class="scroll" tabindex="0" aria-label="Таблица сделок"><table><thead><tr><th>Номер</th><th>Клиент</th><th>Менеджер</th><th>Сумма</th><th>Статус</th><th>Создана</th><th>План закрытия</th><th>Закрыта</th><th>Действия</th></tr></thead><tbody>'+
+    (filtered.slice(ui.page*PAGE,(ui.page+1)*PAGE).map(d=>'<tr><td>'+escape(d.id)+'</td><td>'+escape(d.client)+'</td><td>'+escape(names.get(d.manager))+'</td><td>'+money(d.amount)+'</td><td><span class="badge '+(d.stage===WON?'good':d.stage===LOST?'bad':'')+'">'+stages[d.stage]+'</span></td><td>'+dateLabel(d.created)+'</td><td>'+dateLabel(d.planned)+'</td><td>'+stampLabel(d.closed)+'</td><td><div class="actions"><button data-action="edit-deal" data-id="'+escape(d.id)+'">Изменить</button><button data-action="delete-deal" data-id="'+escape(d.id)+'">Удалить</button></div></td></tr>').join('')||'<tr><td colspan="9" class="empty">Сделки не найдены.</td></tr>')+
+    '</tbody></table></div><div class="split pagination"><span class="muted">Найдено сделок: '+filtered.length+'</span>'+(pages>1?'<div class="actions"><button data-action="prev" '+(ui.page===0?'disabled':'')+'>Назад</button><span>'+(ui.page+1)+' / '+pages+'</span><button data-action="next" '+(ui.page===pages-1?'disabled':'')+'>Далее</button></div>':'')+'</div></div>';
+}
+function render() {
+  const active=document.activeElement;
+  const keep=active&&$('view').contains(active)?active.id:'';
+  const caret=keep&&active.type==='search'?[active.selectionStart,active.selectionEnd]:null;
+  document.querySelectorAll('[data-view]').forEach(button=>{
+    if(button.dataset.view===ui.view) button.setAttribute('aria-current','page');
+    else button.removeAttribute('aria-current');
+  });
+  const demo=db.managers.some(m=>m.demo)||db.deals.some(d=>d.demo);
+  $('demo').hidden=!demo;
+  $('reset').hidden=!demo;
+  $('view').innerHTML=({dashboard,team,deals:dealsView})[ui.view]();
+  if(keep&&$(keep)){
+    $(keep).focus({preventScroll:true});
+    if(caret) $(keep).setSelectionRange(...caret);
+  }
+}
+function input(label,name,value,type='text',attributes='required',wide=false) {
+  return '<label'+(wide?' class="wide"':'')+'>'+label+'<input name="'+name+'" type="'+type+'" value="'+escape(value)+'" '+attributes+'></label>';
+}
+let editing;
+function openEditor(kind,record) {
+  editing={kind,record};
+  $('dialog-title').textContent=kind==='manager'?(record?'Редактирование менеджера':'Новый менеджер'):(record?'Редактирование сделки':'Новая сделка');
+  $('form-error').textContent='';
+  if(kind==='manager'){
+    $('fields').innerHTML=input('ФИО','name',record?.name,'text','required maxlength="120"',true)+
+      input('Месяц плана','month',ui.month,'month')+input('План на месяц, ₸','plan',record?.plans[ui.month],'number','min="0" max="9999999999999" step="0.01"');
+    $('form').elements.month.onchange=event=>{$('form').elements.plan.value=record?.plans[event.target.value]??'';};
+  }else{
+    const now=new Date();
+    let index=1;
+    const used=new Set(db.deals.map(d=>normalizeId(d.id)));
+    while(used.has('SM-'+String(index).padStart(4,'0'))) index++;
+    const id='SM-'+String(index).padStart(4,'0');
+    $('fields').innerHTML=input('Номер сделки','id',record?.id??id,'text','required maxlength="40"')+
+      input('Клиент','client',record?.client,'text','required maxlength="160"')+
+      '<label>Ответственный менеджер<select required name="manager">'+options([['','Выберите менеджера'],...managerList()],record?.manager??ui.dealManager)+'</select></label>'+
+      input('Сумма, ₸','amount',record?.amount,'number','required min="0" max="9999999999999" step="0.01"')+
+      input('Дата создания','created',record?.created??iso(now),'date')+input('Плановая дата закрытия','planned',record?.planned??iso(shift(now,7)),'date')+
+      '<label>Статус<select name="stage">'+options(stages.map((stage,i)=>[i,stage]),record?.stage??0)+'</select></label>'+
+      input('Фактическое закрытие','closed',record?.closed,'datetime-local')+
+      '<label class="wide">Комментарий<textarea name="note" rows="3" maxlength="2000">'+escape(record?.note)+'</textarea></label>';
+    const fields=$('form').elements;
+    function toggleClosed(){
+      const final=isFinal(Number(fields.stage.value));
+      fields.closed.disabled=!final;
+      fields.closed.required=final;
+      fields.closed.closest('label').hidden=!final;
+      if(final&&!fields.closed.value) fields.closed.value=localTime(new Date());
+    }
+    fields.stage.onchange=toggleClosed;
+    toggleClosed();
+  }
+  $('editor').showModal();
+}
+$('cancel').onclick=()=>$('editor').close();
+$('form').onsubmit=event=>{
+  event.preventDefault();
+  const fields=new FormData(event.target);
+  const value=key=>String(fields.get(key)??'');
+  const old=editing.record;
+  try{
+    if(editing.kind==='manager'){
+      const name=value('name').trim(), month=value('month'), plan=Number(value('plan'));
+      if(!validText(name,120)||!validMonth(month)||!validAmount(plan)) throw Error('Проверьте ФИО, месяц и сумму плана.');
+      const plans={...old?.plans};
+      if(plan) plans[month]=plan;
+      else delete plans[month];
+      const m={...old,id:old?.id??'M-'+Date.now()+'-'+Math.random().toString(36).slice(2),name,plans,demo:false};
+      commit({...db,managers:old?db.managers.map(item=>item===old?m:item):[...db.managers,m]});
+    }else{
+      const d={...old,id:value('id').trim(),client:value('client').trim(),manager:value('manager'),amount:Number(value('amount')),created:value('created'),planned:value('planned'),closed:value('closed'),stage:Number(value('stage')),note:value('note'),demo:false};
+      validateDeal(d,new Set(db.managers.map(m=>m.id)));
+      if(db.deals.some(item=>item!==old&&normalizeId(item.id)===normalizeId(d.id))) throw Error('Сделка с таким номером уже существует.');
+      commit({...db,deals:old?db.deals.map(item=>item===old?d:item):[...db.deals,d]});
+    }
+    $('editor').close();
+    notice('Изменения сохранены.');
+  }catch(error){$('form-error').textContent=error.message;}
+};
+document.querySelector('nav').onclick=event=>{
+  const button=event.target.closest('[data-view]');
+  if(button){ui.view=button.dataset.view;render();}
+};
+$('view').addEventListener('change',event=>{
+  const {id,value}=event.target;
+  if(!['period','manager','month','dealManager','stage'].includes(id)) return;
+  if(id==='month'&&!validMonth(value)){event.target.value=ui.month;return;}
+  ui[id]=value;
+  ui.page=0;
+  render();
+});
+$('view').addEventListener('input',event=>{
+  const {id,value}=event.target;
+  if(id!=='dealSearch'&&id!=='teamSearch') return;
+  ui[id]=value;
+  ui.page=0;
+  render();
+});
+$('view').addEventListener('click',event=>{
+  const button=event.target.closest('button');
+  if(!button) return;
+  const {sort,action,id}=button.dataset;
+  if(sort){
+    ui.direction=ui.sort===sort?-ui.direction:-1;
+    ui.sort=sort;
+    render();
+    $('view').querySelector('[data-sort="'+sort+'"]').focus();
+    return;
+  }
+  const deal=db.deals.find(d=>d.id===id);
+  if(action==='add-manager') openEditor('manager');
+  if(action==='edit-manager') openEditor('manager',db.managers.find(m=>m.id===id));
+  if(action==='edit-deal') openEditor('deal',deal);
+  if(action==='add-deal'){
+    if(db.managers.length) openEditor('deal');
+    else{ui.view='team';render();openEditor('manager');notice('Добавьте менеджера, чтобы назначить его ответственным за сделку.');}
+  }
+  if(action==='delete-deal'&&deal&&confirm('Удалить сделку '+deal.id+'?')){
+    try{commit({...db,deals:db.deals.filter(d=>d!==deal)});notice('Сделка удалена.');}
+    catch(error){notice(error.message,true);}
+  }
+  if(action==='prev'||action==='next'){
+    ui.page+=action==='next'?1:-1;
+    render();
+    $('view').querySelector('[data-action="'+action+'"]:enabled, .pagination button:enabled')?.focus();
+  }
+});
+for(const eventName of ['pointerover','focusin']){
+  $('view').addEventListener(eventName,event=>{
+    if(event.target.dataset.point) $('chart-readout').textContent=event.target.dataset.point;
+  });
+}
+function download(name,content,type) {
+  const url=URL.createObjectURL(new Blob([content],{type}));
+  const anchor=document.createElement('a');
+  anchor.href=url;
+  anchor.download=name;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+$('backup').onclick=()=>download('sales-monitor-'+iso(new Date())+'.json',JSON.stringify(db,null,2),'application/json');
+$('csv').onclick=()=>{
+  const names=new Map(managerList());
+  const rows=[['Номер','Клиент','Менеджер','Сумма, ₸','Дата создания','Плановая дата закрытия','Фактическое закрытие','Статус','Комментарий'],
+    ...db.deals.map(d=>[d.id,d.client,names.get(d.manager),String(d.amount).replace('.',','),d.created,d.planned,d.closed,stages[d.stage],d.note])];
+  const cell=value=>{
+    const safe=/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(value)?"'"+value:value;
+    return '"'+safe.replaceAll('"','""')+'"';
+  };
+  download('sales-monitor-'+iso(new Date())+'.csv','\uFEFF'+rows.map(row=>row.map(cell).join(';')).join('\r\n'),'text/csv;charset=utf-8');
+};
+$('restore').onclick=()=>$('upload').click();
+$('upload').onchange=async event=>{
+  const file=event.target.files[0];
+  event.target.value='';
+  if(!file) return;
+  try{
+    const next=validateData(JSON.parse((await file.text()).replace(/^\uFEFF/,'')));
+    if(!confirm('Заменить текущие записи данными из резервной копии?')) return;
+    commit(next,true);
+    notice('Данные восстановлены из резервной копии.');
+  }catch(error){notice('Восстановление не выполнено. '+error.message,true);}
+};
+$('reset').onclick=()=>{
+  if(!confirm('Удалить демонстрационные сделки и менеджеров? Добавленные и изменённые вами записи сохранятся.')) return;
+  const deals=db.deals.filter(d=>!d.demo);
+  const retained=new Set(deals.map(d=>d.manager));
+  const managers=db.managers.filter(m=>!m.demo||retained.has(m.id)).map(m=>m.demo?{...m,demo:false}:m);
+  try{commit({...db,managers,deals});notice('Демонстрационные данные удалены.');}
+  catch(error){notice(error.message,true);}
+};
+render();
+</script>
+</body>
+</html>
